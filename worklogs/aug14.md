@@ -211,3 +211,32 @@ service_role key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZ
    S3 Secret Key: 850181e4652dd023b7a98c58ae0d2d34bd487ee0cc3254aed6eda37307425907
        S3 Region: local
 ```
+
+```log
+~/workspace/how-many-holders $ supabase functions serve
+Setting up Edge Functions runtime...
+Serving functions on http://127.0.0.1:54321/functions/v1/<function-name>
+Using supabase-edge-runtime-1.56.0 (compatible with Deno v1.43.0)
+serving the request with /Users/banriyanahama/workspace/how-many-holders/supabase/functions/fetch-chainbase
+Download https://jsr.io/@supabase/functions-js/meta.json
+Download https://jsr.io/@supabase/functions-js/2.4.3_meta.json
+Download https://jsr.io/@supabase/functions-js/2.4.3/src/edge-runtime.d.ts
+[Info] Hello from Functions!
+```
+
+```log
+~/workspace/how-many-holders $ curl --request POST 'http://localhost:54321/functions/v1/fetch-chainbase' \
+  --header 'Authorization: Bearer SUPABASE_ANON_KEY' \
+  --header 'Content-Type: application/json' \
+  --data '{ "name":"Functions" }'
+{"message":"Hello Functions!"}%                                                                    
+```
+
+I wanted to register `supabase functions serve --env-file ./supabase/.env.local` as a script in `package.json`, but it didn't work.
+```json
+{
+  "scripts": {
+    "function:serve": "supabase functions serve --env-file ./supabase/.env.local"
+  }
+}
+```

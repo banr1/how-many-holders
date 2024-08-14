@@ -5,6 +5,7 @@
     "reset": "supabase db reset || supabase start",
     "test": "supabase db test",
     "lint": "supabase db lint",
-    "deploy": "supabase link --project-ref $SUPABASE_PROJECT_REF && supabase db push"
+    "deploy": "supabase link --project-ref $SUPABASE_PROJECT_REF && supabase db push",
+    "function:serve": "supabase functions serve --env-file ./supabase/.env.local"
   }
 }

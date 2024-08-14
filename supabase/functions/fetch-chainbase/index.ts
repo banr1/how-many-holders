@@ -5,28 +5,68 @@
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 
-console.log("Hello from Functions!")
+const headers = {
+  "X-API-KEY": Deno.env.get('CHAINBASE_API_KEY'),
+  "Content-Type": "application/json",
+};
+
+async function executeQuery(queryId) {
+  const queryData = {
+    queryParameters: {
+      "object-id-prefix": "0x2b1",
+      "coin-type": "0x2::sui::SUI"
+    },
+  };
+
+  return await fetch(
+    `https://api.chainbase.com/api/v1/query/${queryId}/execute`,
+    { method: "POST", headers, body: JSON.stringify(queryData) }
+  )
+    .then((response) => response.json())
+    .then((data) => data.data[0].executionId);
+}
+
+async function checkStatus(executionId) {
+  return await fetch(
+    `https://api.chainbase.com/api/v1/execution/${executionId}/status`,
+    { headers }
+  )
+    .then((response) => response.json())
+    .then((data) => data.data[0]);
+}
+
+async function getResults(executionId) {
+  return await fetch(
+    `https://api.chainbase.com/api/v1/execution/${executionId}/results`,
+    { headers }
+  ).then((response) => response.json());
+}
+
+async function main() {
+}
 
 Deno.serve(async (req) => {
-  const { name } = await req.json()
+  const { name } = await req.json();
   const data = {
     message: `Hello ${name}!`,
-  }
+  };
+
+  const queryId = "690066";
+  const executionId = await executeQuery(queryId);
+  let status;
+  do {
+    const statusResponse = await checkStatus(executionId);
+    status = statusResponse.status;
+    const progress = statusResponse.progress;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    console.log(`${status} ${progress} %`);
+  } while (status !== "FINISHED" && status !== "FAILED");
+
+  const results = await getResults(executionId);
+  console.log(results);
 
   return new Response(
     JSON.stringify(data),
     { headers: { "Content-Type": "application/json" } },
   )
 })
-
-/* To invoke locally:
-
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
-
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/fetch-chainbase' \
-    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
-
-*/
