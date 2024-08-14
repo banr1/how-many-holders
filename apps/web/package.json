@@ -1,5 +1,5 @@
 {
-  "name": "web",
+  "name": "@how-many-holders/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
