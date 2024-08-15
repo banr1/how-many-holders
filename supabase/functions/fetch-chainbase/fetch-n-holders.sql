@@ -1,8 +1,15 @@
 select
-    count(distinct (owner)) as n_holders
+    date(bl.block_timestamp) as date,
+    erc.contract_address as contract,
+    count(erc.wallet_address) as n_holders
 from
-    sui.sui_coins
-where
-    coin_type = '{{coin-type}}'
-    and status = 'exists'
-    and object_id like '{{object-id-prefix}}%';
+    ethereum.erc20_balances_historical erc
+    left join ethereum.blocks bl on erc.block_number = bl.block_number
+group by
+    1,
+    2
+order by
+    date desc,
+    n_holders desc
+limit
+    100;
