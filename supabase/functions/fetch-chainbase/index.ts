@@ -5,22 +5,27 @@
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 
-const headers = {
+const BASE_URI = "https://api.chainbase.com/api/v1";
+
+const HEADERS = {
   "X-API-KEY": Deno.env.get('CHAINBASE_API_KEY'),
   "Content-Type": "application/json",
 };
 
-async function executeQuery(queryId) {
+const QUERY_ID = "690066";
+
+
+async function executeQuery(coinType: string, objectIdPrefix: string) {
   const queryData = {
     queryParameters: {
-      "object-id-prefix": "0x2b1",
-      "coin-type": "0x2::sui::SUI"
+      "coin-type": coinType,
+      "object-id-prefix": objectIdPrefix,
     },
   };
 
   return await fetch(
-    `https://api.chainbase.com/api/v1/query/${queryId}/execute`,
-    { method: "POST", headers, body: JSON.stringify(queryData) }
+    `${BASE_URI}/query/${QUERY_ID}/execute`,
+    { method: "POST", headers: HEADERS, body: JSON.stringify(queryData) }
   )
     .then((response) => response.json())
     .then((data) => data.data[0].executionId);
@@ -28,8 +33,8 @@ async function executeQuery(queryId) {
 
 async function checkStatus(executionId) {
   return await fetch(
-    `https://api.chainbase.com/api/v1/execution/${executionId}/status`,
-    { headers }
+    `${BASE_URI}/execution/${executionId}/status`,
+    { headers: HEADERS }
   )
     .then((response) => response.json())
     .then((data) => data.data[0]);
@@ -37,36 +42,70 @@ async function checkStatus(executionId) {
 
 async function getResults(executionId) {
   return await fetch(
-    `https://api.chainbase.com/api/v1/execution/${executionId}/results`,
-    { headers }
+    `${BASE_URI}/execution/${executionId}/results`,
+    { headers: HEADERS }
   ).then((response) => response.json());
 }
 
 async function main() {
 }
 
+function generateHexPrefixes(): string[] {
+  const characters = "0123456789abcdef";
+  const prefixes = [];
+
+  for (let i = 0; i < 16; i++) {
+    for (let j = 0; j < 16; j++) {
+      for (let k = 0; k < 16; k++) {
+        prefixes.push(`0x${characters[i]}${characters[j]}${characters[k]}`);
+      }
+    }
+  }
+
+  // // try only 1 character
+  // for (let i = 0; i < 16; i++) {
+  //   prefixes.push(`0x2b${characters[i]}`);
+  // }
+
+  return prefixes;
+}
+
+async function executeQueryForAllPrefixes(coinType: string) {
+  const prefixes = generateHexPrefixes();
+  const nHoldersList = [];
+
+  for (const prefix of prefixes) {
+    console.log(`Executing query for prefix: ${prefix}`);
+    const executionId = await executeQuery(coinType, prefix);
+    let status;
+    do {
+      const statusResponse = await checkStatus(executionId);
+      status = statusResponse.status;
+      const progress = statusResponse.progress;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      console.log(`${prefix}: ${status} ${progress}%`);
+    } while (status !== "FINISHED" && status !== "FAILED");
+
+    if (status === "FINISHED") {
+      const result = await getResults(executionId);
+      nHoldersList.push(result.data.data[0][0]);
+    }
+  }
+
+  const nTotalHolders = nHoldersList.reduce((acc, n) => acc + n, 0);
+
+  return nTotalHolders;
+}
+
 Deno.serve(async (req) => {
-  const { name } = await req.json();
-  const data = {
-    message: `Hello ${name}!`,
-  };
+  // const { name } = await req.json();
 
-  const queryId = "690066";
-  const executionId = await executeQuery(queryId);
-  let status;
-  do {
-    const statusResponse = await checkStatus(executionId);
-    status = statusResponse.status;
-    const progress = statusResponse.progress;
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log(`${status} ${progress} %`);
-  } while (status !== "FINISHED" && status !== "FAILED");
-
-  const results = await getResults(executionId);
-  console.log(results);
+  const nTotalHolders = await executeQueryForAllPrefixes("0x2::sui::SUI");
+  console.log("nTotalHolders:", nTotalHolders);
 
   return new Response(
-    JSON.stringify(data),
+    JSON.stringify({ nTotalHolders }),
     { headers: { "Content-Type": "application/json" } },
-  )
-})
+  );
+});
+
