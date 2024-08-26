@@ -10,7 +10,7 @@ datasource db {
 
 model NumOfHolders {
   id        Int      @id @default(autoincrement())
-  date      DateTime
+  date      String
   contractAddress  String
   nHolders   Int
   createdAt DateTime @default(now())

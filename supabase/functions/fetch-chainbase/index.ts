@@ -4,6 +4,7 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import { stringify } from "https://deno.land/std@0.210.0/csv/mod.ts";
 
 const BASE_URI = "https://api.chainbase.com/api/v1";
 
@@ -53,7 +54,15 @@ async function getRecords(executionId: string) {
   return records;
 }
 
+function recordsToCSV(records: any[]): string {
+  const headers = ["date", "contractAddress", "nHolders"];
+  const rows = records.map(record => [record.date, record.contractAddress, record.nHolders]);
+  return stringify([headers, ...rows]);
+}
+
 Deno.serve(async (req) => {
+  const url = new URL(req.url);
+  const format = 'csv';
 
   const executionId = await executeQuery('2024-08-17');
   let status = await checkStatus(executionId);
@@ -68,8 +77,18 @@ Deno.serve(async (req) => {
   const records = await getRecords(executionId);
   console.log(records[0]);
 
-  return new Response(
-    JSON.stringify({ records }),
-    { headers: { "Content-Type": "application/json" } },
-  );
+  if (format === "csv") {
+    const csvContent = recordsToCSV(records);
+    return new Response(csvContent, {
+      headers: {
+        "Content-Type": "text/csv",
+        "Content-Disposition": "attachment; filename=records.csv"
+      },
+    });
+  } else {
+    return new Response(
+      JSON.stringify({ records }),
+      { headers: { "Content-Type": "application/json" } },
+    );
+  }
 });
