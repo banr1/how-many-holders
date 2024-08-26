@@ -12,17 +12,12 @@ const HEADERS = {
   "Content-Type": "application/json",
 };
 
-const QUERY_ID = "690066";
+const QUERY_ID = "690112";
 
+type DateStr = `${number}-${number}-${number}`;
 
-async function executeQuery(coinType: string, objectIdPrefix: string) {
-  const queryData = {
-    queryParameters: {
-      "coin-type": coinType,
-      "object-id-prefix": objectIdPrefix,
-    },
-  };
-
+async function executeQuery(date: DateStr) {
+  const queryData = { queryParameters: { date } };
   return await fetch(
     `${BASE_URI}/query/${QUERY_ID}/execute`,
     { method: "POST", headers: HEADERS, body: JSON.stringify(queryData) }
@@ -47,65 +42,23 @@ async function getResults(executionId) {
   ).then((response) => response.json());
 }
 
-async function main() {
-}
-
-function generateHexPrefixes(): string[] {
-  const characters = "0123456789abcdef";
-  const prefixes = [];
-
-  for (let i = 0; i < 16; i++) {
-    for (let j = 0; j < 16; j++) {
-      for (let k = 0; k < 16; k++) {
-        prefixes.push(`0x${characters[i]}${characters[j]}${characters[k]}`);
-      }
-    }
-  }
-
-  // // try only 1 character
-  // for (let i = 0; i < 16; i++) {
-  //   prefixes.push(`0x2b${characters[i]}`);
-  // }
-
-  return prefixes;
-}
-
-async function executeQueryForAllPrefixes(coinType: string) {
-  const prefixes = generateHexPrefixes();
-  const nHoldersList = [];
-
-  for (const prefix of prefixes) {
-    console.log(`Executing query for prefix: ${prefix}`);
-    const executionId = await executeQuery(coinType, prefix);
-    let status;
-    do {
-      const statusResponse = await checkStatus(executionId);
-      status = statusResponse.status;
-      const progress = statusResponse.progress;
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log(`${prefix}: ${status} ${progress}%`);
-    } while (status !== "FINISHED" && status !== "FAILED");
-
-    if (status === "FINISHED") {
-      const result = await getResults(executionId);
-      nHoldersList.push(result.data.data[0][0]);
-    }
-  }
-
-  const nTotalHolders = nHoldersList.reduce((acc, n) => acc + n, 0);
-
-  return nTotalHolders;
-}
-
 Deno.serve(async (req) => {
-  // const { name } = await req.json();
 
-  const nTotalHolders = await executeQueryForAllPrefixes("0x2::sui::SUI");
-  console.log("nTotalHolders:", nTotalHolders);
+  const executionId = await executeQuery('2024-08-17');
+  let status = await checkStatus(executionId);
+  do {
+    const statusResponse = await checkStatus(executionId);
+    status = statusResponse.status;
+    const progress = statusResponse.progress;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    console.log(`${status} ${progress} %`);
+  } while (status !== "FINISHED" && status !== "FAILED");
+
+  const results = await getResults(executionId);
+  console.log(results);
 
   return new Response(
-    JSON.stringify({ nTotalHolders }),
+    JSON.stringify({ results }),
     { headers: { "Content-Type": "application/json" } },
   );
 });
-
