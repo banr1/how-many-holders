@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -32,11 +32,34 @@ async function checkStatus(executionId: string) {
     .then((data) => data.data[0]);
 }
 
-async function getResults(executionId: string) {
-  return await fetch(
+async function getRecords(executionId: string) {
+  const results = await fetch(
     `${BASE_URI}/execution/${executionId}/results`,
     { headers: HEADERS }
   ).then((response) => response.json());
+
+  const recordsAsArray = results.data.data!;
+  const records = recordsAsArray.map((record: any[]) => {
+    return {
+      date: record[0],
+      contractAddress: record[1],
+      nHolders: record[2],
+    };
+  });
+
+  return records;
+}
+
+async function writeRecords(records: any[]) {
+  for (const record of records) {
+    await prisma.nHolders.create({
+      data: {
+        date: record.date,
+        contractAddress: record.contractAddress,
+        nHolders: record.nHolders,
+      },
+    });
+  }
 }
 
 async function main() {
@@ -50,8 +73,10 @@ async function main() {
     console.log(`${status} ${progress} %`);
   } while (status !== "FINISHED" && status !== "FAILED");
 
-  const results = await getResults(executionId);
-  console.log(results);
+  const records = await getRecords(executionId);
+  console.log(records[0]);
+
+  await writeRecords(records.slice(0, 3));
 };
 
 main()
@@ -61,5 +86,4 @@ main()
   .catch(async (e) => {
     console.error(e)
     await prisma.$disconnect()
-    process.exit(1)
   })

@@ -26,7 +26,7 @@ async function executeQuery(date: DateStr) {
     .then((data) => data.data[0].executionId);
 }
 
-async function checkStatus(executionId) {
+async function checkStatus(executionId: string) {
   return await fetch(
     `${BASE_URI}/execution/${executionId}/status`,
     { headers: HEADERS }
@@ -35,11 +35,22 @@ async function checkStatus(executionId) {
     .then((data) => data.data[0]);
 }
 
-async function getResults(executionId) {
-  return await fetch(
+async function getRecords(executionId: string) {
+  const results = await fetch(
     `${BASE_URI}/execution/${executionId}/results`,
     { headers: HEADERS }
   ).then((response) => response.json());
+
+  const recordsAsArray = results.data.data!;
+  const records = recordsAsArray.map((record: any[]) => {
+    return {
+      date: record[0],
+      contractAddress: record[1],
+      nHolders: record[2],
+    };
+  });
+
+  return records;
 }
 
 Deno.serve(async (req) => {
@@ -54,11 +65,11 @@ Deno.serve(async (req) => {
     console.log(`${status} ${progress} %`);
   } while (status !== "FINISHED" && status !== "FAILED");
 
-  const results = await getResults(executionId);
-  console.log(results);
+  const records = await getRecords(executionId);
+  console.log(records[0]);
 
   return new Response(
-    JSON.stringify({ results }),
+    JSON.stringify({ records }),
     { headers: { "Content-Type": "application/json" } },
   );
 });
