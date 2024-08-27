@@ -48,6 +48,8 @@ async function getRecords(executionId: string) {
       date: record[0],
       contractAddress: record[1],
       nHolders: record[2],
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
   });
 
@@ -55,16 +57,16 @@ async function getRecords(executionId: string) {
 }
 
 function recordsToCSV(records: any[]): string {
-  const headers = ["date", "contractAddress", "nHolders"];
-  const rows = records.map(record => [record.date, record.contractAddress, record.nHolders]);
+  const headers = ["date", "contractAddress", "nHolders", "createdAt", "updatedAt"];
+  const rows = records.map(record => [record.date, record.contractAddress, record.nHolders, record.createdAt, record.updatedAt]);
   return stringify([headers, ...rows]);
 }
 
 Deno.serve(async (req) => {
-  const url = new URL(req.url);
+  const { date } = await req.json();
   const format = 'csv';
 
-  const executionId = await executeQuery('2024-08-17');
+  const executionId = await executeQuery(date);
   let status = await checkStatus(executionId);
   do {
     const statusResponse = await checkStatus(executionId);
